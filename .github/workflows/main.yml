@@ -1,0 +1,37 @@
+yaml
+   name: FTP Deployment
+   on:
+     push:
+       branches:
+         - main
+   jobs:
+     deploy:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Checkout repository
+           uses: actions/checkout@v2
+         - name: Login to Docker Hub
+           uses: docker/login-action@v1
+           with:
+             username: ${{ secrets.DOCKER_USERNAME }}
+             password: ${{ secrets.DOCKER_PASSWORD }}
+         - name: Build and push Docker image
+           uses: docker/build-push-action@v2
+           with:
+             context: .
+             push: true
+             tags: neewait-docker-username/ftp-server:latest
+         - name: Start FTP server in Docker container
+           run: docker run -d -p 21:21 -p 30000-30009:30000-30009 your-docker-username/ftp-server:latest
+         - name: Wait for FTP server to start
+           run: sleep 10
+         - name: Create and upload index.html to FTP server
+           run: |
+             echo "<h1>Hello, world!</h1>" > index.html
+             docker run --rm -v $(pwd):/files alpine tar cf /files/start_page.tar /files/index.html
+             curl -T start_page.tar ftp://localhost/ -u ftp:ftp
+         - name: Upload artifact
+           uses: actions/upload-artifact@v2
+           with:
+             name: start_page
+             path: start_page.tar
